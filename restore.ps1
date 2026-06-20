@@ -5,15 +5,19 @@
 .DESCRIPTION
     将 config.ini 中 [Render] 段的 AllowMeshShader 改回 Enable。
     使用 -RestoreCache 可同时把 shader.cache2.bak / piplinelist.bin.bak 恢复原名。
+
+    【推荐用法】和 fix.ps1 一样, 把 restore.ps1 / restore.bat 放进游戏根目录,
+    双击 restore.bat 即可。脚本默认用自身所在目录作为游戏目录。
 .PARAMETER GamePath
-    游戏根目录。省略时自动搜索。
+    游戏根目录 (包含 MonsterHunterWilds.exe 的目录)。
+    省略时使用脚本所在目录。
 .PARAMETER RestoreCache
     同时恢复缓存文件 (.bak -> 原名)。注意: 损坏的缓存恢复后可能再次崩溃。
 .PARAMETER DryRun
     只打印将执行的操作, 不实际修改。
 .EXAMPLE
     .\restore.ps1
-    仅恢复 AllowMeshShader=Enable。
+    放进游戏根目录后直接运行 (或双击 restore.bat)。
 .EXAMPLE
     .\restore.ps1 -RestoreCache
     同时恢复缓存文件名。
@@ -38,43 +42,31 @@ function Err($m)  { Write-Host "    [ERR]  $m" -ForegroundColor Red }
 $GameDirName = 'MonsterHunterWilds'
 $ExeName     = "$GameDirName.exe"
 
-function Find-LibraryFolders {
-    $found = New-Object System.Collections.Generic.List[string]
-    $steamRoots = @("$env:ProgramFiles(x86)\Steam", "${env:ProgramFiles}\Steam", "C:\Program Files (x86)\Steam")
-    foreach ($d in @('C','D','E','F','G','H','I')) {
-        $steamRoots += "${d}:\Steam"; $steamRoots += "${d}:\SteamLibrary"
-    }
-    $steamRoots = $steamRoots | Where-Object { $_ } | Select-Object -Unique
-    foreach ($root in $steamRoots) {
-        if (-not (Test-Path $root)) { continue }
-        if (-not $found.Contains($root)) { $found.Add($root) | Out-Null }
-        $vdf = Join-Path $root 'steamapps\libraryfolders.vdf'
-        if (Test-Path $vdf) {
-            foreach ($line in Get-Content $vdf -ErrorAction SilentlyContinue) {
-                if ($line -match '"path"\s+"(.+)"') {
-                    $p = $matches[1] -replace '\\\\', '\'
-                    if ((Test-Path $p) -and -not $found.Contains($p)) { $found.Add($p) | Out-Null }
-                }
-            }
-        }
-    }
-    return $found
-}
-function Find-GameDir {
-    foreach ($lib in (Find-LibraryFolders)) {
-        $candidate = Join-Path $lib "steamapps\common\$GameDirName"
-        if (Test-Path (Join-Path $candidate $ExeName)) { return $candidate }
-    }
-    return $null
-}
-
+# ---------------- 定位游戏目录 ----------------
+# 默认使用脚本自身所在目录($PSScriptRoot), 即把本脚本放进游戏根目录后双击即可。
+# 若显式传入 -GamePath, 则以其为准(后路用法)。
 Step "定位游戏目录"
 if ($GamePath) {
-    if (-not (Test-Path (Join-Path $GamePath $ExeName))) { Err "指定路径下未找到 $ExeName"; exit 1 }
     $gameDir = $GamePath
+    Info "使用 -GamePath 指定的路径"
+} elseif ($PSScriptRoot) {
+    $gameDir = $PSScriptRoot
 } else {
-    $gameDir = Find-GameDir
-    if (-not $gameDir) { Err "未能自动找到游戏目录, 请用 -GamePath 指定"; exit 1 }
+    $gameDir = (Get-Location).Path
+    Warn "未获取到脚本所在目录, 改用当前工作目录: $gameDir"
+}
+
+# 安全校验: 目录里必须存在游戏主程序, 否则报错退出
+if (-not (Test-Path (Join-Path $gameDir $ExeName))) {
+    Err "在以下目录中未找到 $ExeName :"
+    Err "    $gameDir"
+    Err ""
+    Err "请把本脚本(restore.ps1 / restore.bat)放到怪物猎人荒野游戏根目录"
+    Err "(即和 MonsterHunterWilds.exe 同一个文件夹)后再运行。"
+    Err ""
+    Err "如不想把脚本复制进游戏目录, 也可手动指定路径:"
+    Info '示例: .\restore.ps1 -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"'
+    exit 1
 }
 Ok "游戏目录: $gameDir"
 
@@ -128,7 +120,14 @@ if ($RestoreCache) {
 } else {
     Step "缓存文件"
     Info "未指定 -RestoreCache, 缓存 .bak 文件保持不变。"
-    Info "如需恢复缓存文件名: .\restore.ps1 -RestoreCache"
+    Info "如需恢复缓存文件名: 双击 restore.bat -RestoreCache  或  .\restore.ps1 -RestoreCache"
 }
 
 Step "回滚完成"
+
+# 双击 .bat 运行时, 窗口不会一闪而过
+if ($Host.Name -eq 'ConsoleHost') {
+    Write-Host ""
+    Write-Host "按回车键退出..." -ForegroundColor DarkGray -NoNewline
+    Read-Host | Out-Null
+}

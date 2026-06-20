@@ -22,33 +22,49 @@ Stack[0] : 0x0000000000000000 ( No Module )   ← 调用栈为空
 
 ---
 
-## 🚀 快速使用
+## 🚀 使用方法 (3 步)
 
-### 方法 A:右键 "用 PowerShell 运行"(最简单)
-1. 下载本项目(克隆或下载 ZIP)。
-2. 在项目文件夹里,右键 `fix.ps1` → "使用 PowerShell 运行"。
-3. 脚本会自动查找游戏目录并修复。
+### 第 1 步:找到游戏根目录
 
-### 方法 B:命令行
-```powershell
-# 自动查找游戏并修复
-.\fix.ps1
+也就是 **`MonsterHunterWilds.exe` 所在的文件夹**。常见路径:
 
-# 手动指定游戏路径
-.\fix.ps1 -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"
-
-# 只预演, 不做任何改动
-.\fix.ps1 -DryRun
+```
+C:\Program Files (x86)\Steam\steamapps\common\MonsterHunterWilds\
+D:\SteamLibrary\steamapps\common\MonsterHunterWilds\
+E:\SteamLibrary\steamapps\common\MonsterHunterWilds\
 ```
 
-> 首次运行若被系统策略拦截,在 PowerShell 里执行一次:
-> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+> 不知道在哪?Steam 库 → 右键 Monster Hunter Wilds → 管理 → 浏览本地文件。
+
+### 第 2 步:把脚本放进去
+
+把以下 **4 个文件** 一起复制进游戏根目录(和 `MonsterHunterWilds.exe` 同一个文件夹):
+
+- `fix.ps1` + `fix.bat`
+- `restore.ps1` + `restore.bat`
+
+```
+...\MonsterHunterWilds\
+    ├── MonsterHunterWilds.exe      ← 游戏本体
+    ├── config.ini
+    ├── shader.cache2
+    ├── fix.ps1         ← 放这里 👈
+    ├── fix.bat         ← 放这里 👈
+    ├── restore.ps1     ← 放这里 👈
+    └── restore.bat     ← 放这里 👈
+```
+
+### 第 3 步:双击 `fix.bat`
+
+会弹出一个黑色窗口,自动完成修复。看到 `[OK] 修复操作已全部执行` 就成功了。
+
+> 💡 脚本默认用**自己所在的目录**作为游戏目录,所以一定要放进游戏根目录。放错了会提示找不到 `MonsterHunterWilds.exe` 并退出,不会瞎搞。
 
 ---
 
 ## 🔧 脚本做了什么
 
-`fix.ps1` 执行 3 步**可逆**操作:
+`fix.bat` / `fix.ps1` 执行 3 步**可逆**操作:
 
 | 步骤 | 操作 | 说明 |
 |------|------|------|
@@ -62,12 +78,30 @@ Stack[0] : 0x0000000000000000 ( No Module )   ← 调用栈为空
 
 ## ↩️ 回滚
 
+双击 `restore.bat` 即可恢复。或用命令行:
+
 ```powershell
 # 只恢复配置 (AllowMeshShader 改回 Enable)
 .\restore.ps1
 
 # 连缓存文件名一起恢复 (谨慎: 损坏缓存恢复后可能再次崩溃)
 .\restore.ps1 -RestoreCache
+```
+
+---
+
+## ⚙️ 进阶:不想把脚本放进游戏目录?
+
+如果你不想把脚本复制进游戏目录,可以直接用 `-GamePath` 参数指定路径:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\放脚本的目录\fix.ps1" -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"
+```
+
+或预演 (不改动任何文件):
+
+```powershell
+.\fix.ps1 -DryRun
 ```
 
 ---
@@ -80,7 +114,7 @@ Stack[0] : 0x0000000000000000 ( No Module )   ← 调用栈为空
   - `sfc /scannow` 修复系统文件
   - 关闭 CPU 超频 / 内存 XMP 后测试
   - 用 WinDbg / CrashReport 解析 `MiniDump.dmp` 定位崩溃函数
-- `AllowMeshShader=Disable` 是 RE Engine 对 Zen3 + RTX 组合的稳定性兜底。如确认稳定后想开回,可运行 `restore.ps1`。
+- `AllowMeshShader=Disable` 是 RE Engine 对 Zen3 + RTX 组合的稳定性兜底。如确认稳定后想开回,可运行 `restore.bat`。
 
 ---
 
@@ -88,8 +122,10 @@ Stack[0] : 0x0000000000000000 ( No Module )   ← 调用栈为空
 
 | 文件 | 作用 |
 |------|------|
-| `fix.ps1` | 修复主脚本 |
-| `restore.ps1` | 回滚脚本 |
+| `fix.bat` | 修复启动器,**双击运行** |
+| `fix.ps1` | 修复主脚本 (被 .bat 调用) |
+| `restore.bat` | 回滚启动器,**双击运行** |
+| `restore.ps1` | 回滚脚本 (被 .bat 调用) |
 | `LICENSE` | MIT |
 
 ---

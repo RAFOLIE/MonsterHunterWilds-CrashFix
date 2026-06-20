@@ -6,7 +6,10 @@
     修复 RE Engine 在游戏版本升级后, 因着色器缓存 (shader.cache2 / piplinelist.bin)
     损坏导致的 EXCEPTION_ILLEGAL_INSTRUCTION 启动崩溃。
 
-    脚本执行以下【可逆】操作:
+    【推荐用法】把 fix.ps1 / fix.bat 放进游戏根目录 (和 MonsterHunterWilds.exe
+    同一个文件夹), 双击 fix.bat 即可。脚本默认用自身所在目录作为游戏目录。
+
+    执行以下【可逆】操作:
       1. 备份 config.ini (带时间戳后缀)
       2. 将 shader.cache2 / piplinelist.bin 重命名为 .bak
       3. 将 config.ini 中 [Render] 段的 AllowMeshShader 改为 Disable
@@ -14,15 +17,15 @@
     所有操作均不删除任何文件, 可随时用 restore.ps1 回滚。
 .PARAMETER GamePath
     游戏根目录 (包含 MonsterHunterWilds.exe 的目录)。
-    省略时自动在常见 Steam 库目录中搜索。
+    省略时使用脚本所在目录。仅当不想把脚本放进游戏目录时才需要指定。
 .PARAMETER DryRun
     只打印将要执行的操作, 不实际修改。等价于 -WhatIf。
 .EXAMPLE
     .\fix.ps1
-    自动查找游戏并修复。
+    放进游戏根目录后直接运行 (或双击 fix.bat)。
 .EXAMPLE
     .\fix.ps1 -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"
-    手动指定游戏路径。
+    手动指定游戏路径 (不把脚本放进游戏目录的情况)。
 .EXAMPLE
     .\fix.ps1 -DryRun
     预演, 不做任何改动。
@@ -49,63 +52,34 @@ function Err($m)  { Write-Host "    [ERR]  $m" -ForegroundColor Red }
 $GameDirName = 'MonsterHunterWilds'
 $ExeName     = "$GameDirName.exe"
 
-# ---------------- 查找 Steam 库 ----------------
-function Find-LibraryFolders {
-    $found = New-Object System.Collections.Generic.List[string]
-    $steamRoots = @(
-        "$env:ProgramFiles(x86)\Steam",
-        "${env:ProgramFiles}\Steam",
-        "C:\Program Files (x86)\Steam"
-    )
-    foreach ($d in @('C','D','E','F','G','H','I')) {
-        $steamRoots += "${d}:\Steam"
-        $steamRoots += "${d}:\SteamLibrary"
-    }
-    $steamRoots = $steamRoots | Where-Object { $_ } | Select-Object -Unique
-    foreach ($root in $steamRoots) {
-        if (-not (Test-Path $root)) { continue }
-        if (-not $found.Contains($root)) { $found.Add($root) | Out-Null }
-        $vdf = Join-Path $root 'steamapps\libraryfolders.vdf'
-        if (Test-Path $vdf) {
-            foreach ($line in Get-Content $vdf -ErrorAction SilentlyContinue) {
-                if ($line -match '"path"\s+"(.+)"') {
-                    $p = $matches[1] -replace '\\\\', '\'
-                    if ((Test-Path $p) -and -not $found.Contains($p)) {
-                        $found.Add($p) | Out-Null
-                    }
-                }
-            }
-        }
-    }
-    return $found
-}
-
-function Find-GameDir {
-    foreach ($lib in (Find-LibraryFolders)) {
-        $candidate = Join-Path $lib "steamapps\common\$GameDirName"
-        if (Test-Path (Join-Path $candidate $ExeName)) { return $candidate }
-    }
-    return $null
-}
-
 # ---------------- 定位游戏目录 ----------------
+# 默认使用脚本自身所在目录($PSScriptRoot), 即把本脚本放进游戏根目录后双击即可。
+# 若显式传入 -GamePath, 则以其为准(后路用法)。
 Step "定位游戏目录"
 if ($GamePath) {
-    if (-not (Test-Path (Join-Path $GamePath $ExeName))) {
-        Err "指定路径下未找到 $ExeName : $GamePath"
-        exit 1
-    }
     $gameDir = $GamePath
-    Ok "使用指定路径: $gameDir"
+    Info "使用 -GamePath 指定的路径"
+} elseif ($PSScriptRoot) {
+    $gameDir = $PSScriptRoot
 } else {
-    $gameDir = Find-GameDir
-    if (-not $gameDir) {
-        Err "未能自动找到游戏目录。请用 -GamePath 手动指定。"
-        Info "示例: .\fix.ps1 -GamePath `"F:\SteamLibrary\steamapps\common\MonsterHunterWilds`""
-        exit 1
-    }
-    Ok "自动定位: $gameDir"
+    # 极少数情况(如直接粘贴到 PowerShell 交互窗口运行)无脚本路径
+    $gameDir = (Get-Location).Path
+    Warn "未获取到脚本所在目录, 改用当前工作目录: $gameDir"
 }
+
+# 安全校验: 目录里必须存在游戏主程序, 否则报错退出 (防止误操作别的目录)
+if (-not (Test-Path (Join-Path $gameDir $ExeName))) {
+    Err "在以下目录中未找到 $ExeName :"
+    Err "    $gameDir"
+    Err ""
+    Err "请把本脚本(fix.ps1 / fix.bat)放到怪物猎人荒野游戏根目录"
+    Err "(即和 MonsterHunterWilds.exe 同一个文件夹)后再运行。"
+    Err ""
+    Err "如不想把脚本复制进游戏目录, 也可手动指定路径:"
+    Info '示例: .\fix.ps1 -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"'
+    exit 1
+}
+Ok "游戏目录: $gameDir"
 
 # ---------------- 文件存在性检查 ----------------
 Step "检查待处理文件"
@@ -200,5 +174,11 @@ Write-Host "    下一步: 启动游戏测试。" -ForegroundColor White
 Write-Host "    注意: 首次启动因重新编译着色器会明显变慢 (1~3 分钟), 属正常现象。" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "    如需回滚: " -ForegroundColor White -NoNewline
-Write-Host ".\restore.ps1" -ForegroundColor Magenta
+Write-Host ".\restore.bat" -ForegroundColor Magenta
 Write-Host ""
+
+# 双击 .bat 运行时, 窗口不会一闪而过
+if ($Host.Name -eq 'ConsoleHost') {
+    Write-Host "按回车键退出..." -ForegroundColor DarkGray -NoNewline
+    Read-Host | Out-Null
+}
