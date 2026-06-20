@@ -43,30 +43,39 @@ $GameDirName = 'MonsterHunterWilds'
 $ExeName     = "$GameDirName.exe"
 
 # ---------------- 定位游戏目录 ----------------
-# 默认使用脚本自身所在目录($PSScriptRoot), 即把本脚本放进游戏根目录后双击即可。
+# 本脚本位于 MHW-CrashFix 文件夹内, 游戏根目录在脚本所在目录的【父级】。
+# 从 $PSScriptRoot 向上逐级查找含 MonsterHunterWilds.exe 的目录。
 # 若显式传入 -GamePath, 则以其为准(后路用法)。
 Step "定位游戏目录"
 if ($GamePath) {
     $gameDir = $GamePath
     Info "使用 -GamePath 指定的路径"
-} elseif ($PSScriptRoot) {
-    $gameDir = $PSScriptRoot
 } else {
-    $gameDir = (Get-Location).Path
-    Warn "未获取到脚本所在目录, 改用当前工作目录: $gameDir"
-}
+    $start = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+    $gameDir = $null
+    $dir = $start
+    for ($i = 0; $i -lt 5; $i++) {
+        if (Test-Path (Join-Path $dir $ExeName)) { $gameDir = $dir; break }
+        $parent = Split-Path $dir -Parent
+        if (-not $parent -or $parent -eq $dir) { break }
+        $dir = $parent
+    }
 
-# 安全校验: 目录里必须存在游戏主程序, 否则报错退出
-if (-not (Test-Path (Join-Path $gameDir $ExeName))) {
-    Err "在以下目录中未找到 $ExeName :"
-    Err "    $gameDir"
-    Err ""
-    Err "请把本脚本(restore.ps1 / restore.bat)放到怪物猎人荒野游戏根目录"
-    Err "(即和 MonsterHunterWilds.exe 同一个文件夹)后再运行。"
-    Err ""
-    Err "如不想把脚本复制进游戏目录, 也可手动指定路径:"
-    Info '示例: .\restore.ps1 -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"'
-    exit 1
+    if (-not $gameDir) {
+        Err "未能找到游戏主程序 $ExeName"
+        Err "已从脚本所在目录向上查找:"
+        Err "    $start"
+        Err ""
+        Err "请确认整个 MHW-CrashFix 文件夹已放进怪物猎人荒野游戏根目录"
+        Err "(即和 MonsterHunterWilds.exe 同一个文件夹的里面)。"
+        Err ""
+        Err "如不想移动文件夹, 也可手动指定游戏路径:"
+        Info '示例: .\restore.ps1 -GamePath "F:\SteamLibrary\steamapps\common\MonsterHunterWilds"'
+        exit 1
+    }
+    if ($gameDir -ne $start) {
+        Info "脚本目录: $start"
+    }
 }
 Ok "游戏目录: $gameDir"
 
