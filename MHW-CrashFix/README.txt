@@ -23,9 +23,10 @@
 
 【修复了什么】
 
-  解决游戏更新后启动就崩溃的问题 (EXCEPTION_ILLEGAL_INSTRUCTION)。
-  根本原因:旧的着色器缓存 (shader.cache2) 损坏。
-  本工具会:备份配置 → 清掉旧缓存 → 关闭 Mesh Shader。
+  解决游戏启动就崩溃的问题 (EXCEPTION_ILLEGAL_INSTRUCTION)。
+  根本原因:本地的着色器缓存 (shader.cache2) 内容损坏,
+  或 Mesh Shader 编译路径在特定 CPU 上生成了不支持的指令。
+  本工具会:备份配置 → 清掉损坏的缓存 → 关闭 Mesh Shader。
 
 
 【重要提醒】

@@ -2,7 +2,7 @@
 
 怪物猎人荒野 (Monster Hunter Wilds) **启动即崩溃** (`EXCEPTION_ILLEGAL_INSTRUCTION`) 一键修复工具。
 
-适用于 RE Engine 在游戏版本升级后, 因着色器缓存损坏导致的启动崩溃。所有操作**可逆**, 不删除任何文件。
+适用于 RE Engine 因本地着色器缓存损坏或 Mesh Shader 编译路径异常导致的启动崩溃。所有操作**可逆**, 不删除任何文件。
 
 ---
 
@@ -53,9 +53,11 @@ ExceptionAddress: 000000014ADC21DF   (落在游戏主模块内)
 Stack[0] : 0x0000000000000000 ( No Module )   ← 调用栈为空
 ```
 
-**根因**:游戏升级后,本地着色器缓存 (`shader.cache2`) / 管线缓存 (`piplinelist.bin`) 仍是旧版本编译产物,新版本游戏加载时遇到当前 CPU 不支持的指令而崩溃。
+**根因**:RE Engine 把着色器预先编译成机器码缓存到本地的 `shader.cache2` / `piplinelist.bin`,启动时直接加载。这套缓存一旦损坏(写入时被中断、DirectStorage 写到一半出错、或 Mesh Shader 编译路径在特定 CPU 上生成了不支持的指令),游戏就会在加载时执行到非法指令而崩溃。
 
-**为什么 Steam "验证文件完整性" 没用**:Steam 只校验游戏自带文件 (`.exe` / `.pak`),`shader.cache2` 是引擎在本机生成的,Steam 不覆盖它。
+> 说明:这不是"游戏版本和缓存版本不匹配"的问题(经实际验证,缓存与游戏是同一天生成的)。更可能是**缓存内容损坏**或 **Mesh Shader 编译路径的 bug**。清缓存 = 强制重新编译;关 Mesh Shader = 绕开那条容易出问题的路径。两者都能消除这次崩溃,但机制和"版本新旧"无关。
+
+**为什么 Steam "验证文件完整性" 没用**:Steam 只校验游戏自带文件 (`.exe` / `.pak`) 的完整性,而 `shader.cache2` 是引擎在本机运行时生成的,Steam 不覆盖它,也不检查它的内容。
 
 `fix.bat` 执行 3 步**可逆**操作:备份 `config.ini` → 重命名缓存为 `.bak` → 设置 `AllowMeshShader=Disable`。
 
