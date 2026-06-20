@@ -1,0 +1,22 @@
+# 用户生成的备份与缓存 (绝不提交)
+*.bak
+*.bak_*
+shader.cache*
+piplinelist.bin*
+
+# 崩溃报告文件
+*.dmp
+*.evtx
+*.nfo
+CrashReport/
+
+# 游戏配置本体 (避免误提交个人设置)
+config.ini
+config.ini.*
+
+# PowerShell / IDE
+*.pdb
+.vs/
+.idea/
+.vscode/
+*.user
